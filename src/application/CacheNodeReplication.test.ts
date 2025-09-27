@@ -1,5 +1,5 @@
-import { CacheNode } from '../../src/application/CacheNode';
-import { ConsistentHash } from '../../src/domain/ConsistentHash';
+import { CacheNode } from './CacheNode';
+import { ConsistentHash } from '../domain/ConsistentHash';
 
 global.fetch = jest.fn();
 

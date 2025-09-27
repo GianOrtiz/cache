@@ -1,4 +1,4 @@
-import { ConsistentHash } from '../../src/domain/ConsistentHash';
+import { ConsistentHash } from './ConsistentHash';
 
 describe('ConsistentHash', () => {
     let consistentHash: ConsistentHash;

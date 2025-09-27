@@ -1,4 +1,4 @@
-import { CacheStore } from '../../src/domain/CacheStore';
+import { CacheStore } from './CacheStore';
 
 describe('CacheStore', () => {
     let cacheStore: CacheStore;

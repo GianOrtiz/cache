@@ -1,8 +1,8 @@
 import express from 'express';
 import request from 'supertest';
-import { createServer } from '../../src/infrastructure/server';
-import { CacheNode } from '../../src/application/CacheNode';
-import { ConsistentHash } from '../../src/domain/ConsistentHash';
+import { createServer } from './server';
+import { CacheNode } from '../application/CacheNode';
+import { ConsistentHash } from '../domain/ConsistentHash';
 
 global.fetch = jest.fn();
 

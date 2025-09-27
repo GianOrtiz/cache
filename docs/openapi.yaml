@@ -1,0 +1,110 @@
+openapi: 3.0.4
+info:
+  title: Cache - A Key Value Store API
+  description: A simple API for a key-value store without authentication to work as a cache.
+  version: 1.0.0
+servers:
+  - url: http://api.example.com/v1
+    description: Production server
+paths:
+  /items/{key}:
+    get:
+      summary: Retrieve an item
+      description: Retrieves the value associated with a given key.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key of the item to retrieve.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved the item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '404':
+          description: Item not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Add or update an item
+      description: Adds a new key-value pair or updates an existing one. The key is provided in the path, and the value is in the request body.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key for the item.
+          schema:
+            type: string
+      requestBody:
+        description: The value of the item to store.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+                  example: "my-item-value"
+              required:
+                - value
+      responses:
+        '201':
+          description: Item created or updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Invalid input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Remove an item
+      description: Deletes an item from the store by its key.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key of the item to delete.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Item successfully deleted.
+        '404':
+          description: Item not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    Item:
+      type: object
+      properties:
+        key:
+          type: string
+          example: "my-key"
+        value:
+          type: string
+          example: "my-value"
+      required:
+        - key
+        - value
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Item not found"
+      required:
+        - message

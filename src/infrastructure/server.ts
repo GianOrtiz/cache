@@ -5,8 +5,8 @@ export function createServer(node: CacheNode) {
     const app = express();
     app.use(express.json());
 
-    app.get('/:key', (req, res) => {
-        const value = node.get(req.params.key);
+    app.get('/:key', async (req, res) => {
+        const value = await node.get(req.params.key);
         if (value) {
             res.send(value);
         } else {
@@ -14,19 +14,24 @@ export function createServer(node: CacheNode) {
         }
     });
 
-    app.put('/:key', (req, res) => {
-        node.set(req.params.key, req.body.value);
+    app.put('/:key', async (req, res) => {
+        await node.set(req.params.key, req.body.value);
         res.status(204).send();
     });
 
-    app.delete('/:key', (req, res) => {
-        node.delete(req.params.key);
+    app.delete('/:key', async (req, res) => {
+        await node.delete(req.params.key);
         res.status(204).send();
     });
 
     // Internal endpoints for node-to-node communication
     app.put('/internal/:key', (req, res) => {
         node.setLocal(req.params.key, req.body.value);
+        res.status(204).send();
+    });
+
+    app.delete('/internal/:key', (req, res) => {
+        node.deleteLocal(req.params.key);
         res.status(204).send();
     });
 

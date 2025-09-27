@@ -7,15 +7,13 @@ import { ConsistentHash } from '../../src/domain/ConsistentHash';
 describe('Server', () => {
     let app: express.Express;
     let node: CacheNode;
-    let nodes: Map<string, CacheNode>;
-    let consistentHash: ConsistentHash;
 
     beforeEach(() => {
-        consistentHash = new ConsistentHash();
-        nodes = new Map<string, CacheNode>();
+        const consistentHash = new ConsistentHash();
+        const nodeEndpoints = new Map<string, string>();
         const nodeId = 'node0';
-        node = new CacheNode(nodeId, consistentHash, nodes);
-        nodes.set(nodeId, node);
+        nodeEndpoints.set(nodeId, 'http://localhost:3000');
+        node = new CacheNode(nodeId, consistentHash, nodeEndpoints);
         consistentHash.addNode(nodeId);
         app = createServer(node);
     });
@@ -27,6 +25,9 @@ describe('Server', () => {
     it('should store and retrieve a value', async () => {
         const key = 'my-key';
         const value = 'my-value';
+
+        // Mock fetch for potential proxying
+        global.fetch = jest.fn();
 
         await request(app)
             .put(`/${key}`)
@@ -40,6 +41,9 @@ describe('Server', () => {
     it('should delete a value', async () => {
         const key = 'my-key';
         const value = 'my-value';
+
+        // Mock fetch for potential proxying
+        global.fetch = jest.fn();
 
         await request(app)
             .put(`/${key}`)

@@ -10,7 +10,20 @@ export class CacheNode {
         private readonly nodeEndpoints: Map<string, string>,
     ) {}
 
-    public get(key: string): string | undefined {
+    public async get(key: string): Promise<string | undefined> {
+        const node = this.consistentHash.getNode(key);
+        if (node === this.id) {
+            return this.getLocal(key);
+        } else {
+            const endpoint = this.nodeEndpoints.get(node!)!;
+            const response = await fetch(`${endpoint}/${key}`);
+            if (response.ok) {
+                return response.text();
+            }
+        }
+    }
+
+    public getLocal(key: string): string | undefined {
         return this.store.get(key);
     }
 
@@ -36,7 +49,23 @@ export class CacheNode {
         this.store.set(key, value);
     }
 
-    public delete(key: string): void {
+    public async delete(key: string): Promise<void> {
+        const nodes = this.consistentHash.getNodes(key, 3);
+        for (const node of nodes) {
+            const endpoint = this.nodeEndpoints.get(node);
+            if (endpoint) {
+                if (node === this.id) {
+                    this.deleteLocal(key);
+                } else {
+                    await fetch(`${endpoint}/internal/${key}`, {
+                        method: 'DELETE',
+                    });
+                }
+            }
+        }
+    }
+
+    public deleteLocal(key: string): void {
         this.store.delete(key);
     }
 

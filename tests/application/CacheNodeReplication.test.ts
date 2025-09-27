@@ -1,39 +1,53 @@
 import { CacheNode } from '../../src/application/CacheNode';
 import { ConsistentHash } from '../../src/domain/ConsistentHash';
 
-describe('CacheNode Replication', () => {
-    it('should replicate data to the correct nodes', () => {
-        const consistentHash = new ConsistentHash(10);
-        const nodes = new Map<string, CacheNode>();
+global.fetch = jest.fn(() =>
+    Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({}),
+    } as Response),
+);
 
-        // Create and add nodes to the hash ring and the nodes map
+describe('CacheNode Replication', () => {
+    beforeEach(() => {
+        (global.fetch as jest.Mock).mockClear();
+    });
+
+    it('should replicate data to the correct nodes', async () => {
+        const consistentHash = new ConsistentHash(10);
+        const nodeEndpoints = new Map<string, string>();
+        const nodes: Map<string, CacheNode> = new Map();
+
+        // Create nodes and endpoints
         for (let i = 0; i < 3; i++) {
             const nodeId = `node${i}`;
+            const endpoint = `http://localhost:300${i}`;
             consistentHash.addNode(nodeId);
-            nodes.set(nodeId, new CacheNode(nodeId, consistentHash, nodes));
+            nodeEndpoints.set(nodeId, endpoint);
+            nodes.set(nodeId, new CacheNode(nodeId, consistentHash, nodeEndpoints));
         }
 
-        // Pick a node to interact with (e.g., node0)
         const entryNode = nodes.get('node0')!;
-
-        // Set a value
         const key = 'my-key';
         const value = 'my-value';
-        entryNode.set(key, value);
 
-        // Determine which nodes should have the data
+        await entryNode.set(key, value);
+
         const responsibleNodes = consistentHash.getNodes(key, 3);
 
-        // Verify that the data is on the responsible nodes
+        // Verify that the data was set locally on the responsible nodes that are the entry node
+        // and that fetch was called for the other responsible nodes.
         for (const nodeId of responsibleNodes) {
             const node = nodes.get(nodeId)!;
-            expect(node.get(key)).toBe(value);
-        }
-
-        // Verify that the data is not on other nodes (if any)
-        for (const [nodeId, node] of nodes.entries()) {
-            if (!responsibleNodes.includes(nodeId)) {
-                expect(node.get(key)).toBeUndefined();
+            if (node.id === entryNode.id) {
+                expect(node.getLocal(key)).toBe(value);
+            } else {
+                const endpoint = nodeEndpoints.get(nodeId)!;
+                expect(global.fetch).toHaveBeenCalledWith(`${endpoint}/internal/${key}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value }),
+                });
             }
         }
     });

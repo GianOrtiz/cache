@@ -4,34 +4,37 @@ import { ConsistentHash } from '../../src/domain/ConsistentHash';
 describe('CacheNode Anti-Entropy', () => {
     it('should detect data inconsistency between nodes', async () => {
         const consistentHash = new ConsistentHash(10);
-        const nodes = new Map<string, CacheNode>();
+        const nodeEndpoints = new Map<string, string>();
 
-        // Create two nodes
-        const node1 = new CacheNode('node1', consistentHash, nodes);
-        const node2 = new CacheNode('node2', consistentHash, nodes);
-
-        nodes.set('node1', node1);
-        nodes.set('node2', node2);
-
+        // Setup nodes and endpoints
+        nodeEndpoints.set('node1', 'http://localhost:3001');
+        nodeEndpoints.set('node2', 'http://localhost:3002');
         consistentHash.addNode('node1');
         consistentHash.addNode('node2');
 
-        // Set different data on each node
-        node1.setLocal('key1', 'value1');
-        node2.setLocal('key2', 'value2');
+        const node1 = new CacheNode('node1', consistentHash, nodeEndpoints);
 
-        // Mock console.log to capture output
+        // Set data on node1
+        node1.setLocal('key1', 'value1');
+
+        // Mock fetch to return a different merkle root for node2
+        const differentMerkleRoot = 'different-root';
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                ok: true,
+                text: () => Promise.resolve(differentMerkleRoot),
+            } as Response),
+        );
+
         const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-        // Run anti-entropy on node1
         await node1.antiEntropy();
 
-        // Verify that the inconsistency was detected
+        expect(global.fetch).toHaveBeenCalledWith('http://localhost:3002/internal/merkle-root');
         expect(consoleSpy).toHaveBeenCalledWith(
             '[node1] Merkle root mismatch with [node2]. Triggering synchronization.',
         );
 
-        // Clean up
         consoleSpy.mockRestore();
     });
 });

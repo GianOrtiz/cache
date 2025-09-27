@@ -7,17 +7,28 @@ export class CacheNode {
     constructor(
         public readonly id: string,
         private readonly consistentHash: ConsistentHash,
-        private readonly nodes: Map<string, CacheNode>,
+        private readonly nodeEndpoints: Map<string, string>,
     ) {}
 
     public get(key: string): string | undefined {
         return this.store.get(key);
     }
 
-    public set(key: string, value: string): void {
+    public async set(key: string, value: string): Promise<void> {
         const nodes = this.consistentHash.getNodes(key, 3);
         for (const node of nodes) {
-            this.nodes.get(node)?.setLocal(key, value);
+            const endpoint = this.nodeEndpoints.get(node);
+            if (endpoint) {
+                if (node === this.id) {
+                    this.setLocal(key, value);
+                } else {
+                    await fetch(`${endpoint}/internal/${key}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value }),
+                    });
+                }
+            }
         }
     }
 
@@ -34,15 +45,15 @@ export class CacheNode {
     }
 
     public async antiEntropy(): Promise<void> {
-        for (const otherNode of this.nodes.values()) {
-            if (otherNode.id === this.id) continue;
+        for (const [nodeId, endpoint] of this.nodeEndpoints.entries()) {
+            if (nodeId === this.id) continue;
 
-            if (otherNode.getMerkleRoot() !== this.getMerkleRoot()) {
-                // In a real-world scenario, you would request the full data
-                // from the other node and compare it to your own.
-                // For this simulation, we'll just log a message.
+            const response = await fetch(`${endpoint}/internal/merkle-root`);
+            const remoteMerkleRoot = await response.text();
+
+            if (remoteMerkleRoot !== this.getMerkleRoot()) {
                 console.log(
-                    `[${this.id}] Merkle root mismatch with [${otherNode.id}]. Triggering synchronization.`,
+                    `[${this.id}] Merkle root mismatch with [${nodeId}]. Triggering synchronization.`,
                 );
             }
         }

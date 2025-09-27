@@ -1,0 +1,80 @@
+@startuml
+title Caching Service with Consistent Hashing and Quorum
+
+actor Client as C
+
+box "Cache Cluster"
+  participant "Coordinator Server" as Coord
+  participant "Server 1" as S1
+  participant "Server 2" as S2
+  participant "..." as Sdots
+  participant "Server M" as SM
+end box
+
+
+group Write/Remove Operation (add/set/remove)
+    C -> Coord: request(key, value)
+    activate Coord
+    Coord -> Coord: 1. Identify N replica servers for 'key' using consistent hashing
+    note right of Coord
+        The key is hashed to a point
+        on the hash ring. The N servers
+        clockwise from that point are
+        chosen as replicas.
+    end note
+
+    Coord -> S1: write(key, value)
+    Coord -> S2: write(key, value)
+    Coord -> Sdots: write(key, value)
+    activate S1
+    activate S2
+    activate Sdots
+
+    S1 --> Coord: ack
+    deactivate S1
+    S2 --> Coord: ack
+    deactivate S2
+    Sdots --> Coord: ack
+    deactivate Sdots
+
+    Coord -> Coord: 2. Wait for W acknowledgements (W <= N)
+    note right of Coord
+        Consensus is reached when W
+        servers confirm the write.
+        This makes the write durable.
+    end note
+    Coord --> C: Success
+    deactivate Coord
+end
+
+group Read Operation (get)
+    C -> Coord: get(key)
+    activate Coord
+    Coord -> Coord: 1. Identify N replica servers for 'key' using consistent hashing
+
+    Coord -> S1: read(key)
+    Coord -> S2: read(key)
+    Coord -> Sdots: read(key)
+    activate S1
+    activate S2
+    activate Sdots
+
+    S1 --> Coord: value
+    deactivate S1
+    S2 --> Coord: value
+    deactivate S2
+    Sdots --> Coord: value
+    deactivate Sdots
+
+    Coord -> Coord: 2. Wait for R responses (R <= N)
+    note right of Coord
+        Consensus is reached when R
+        servers return the value.
+        This ensures consistency.
+        If W + R > N, we have strong consistency.
+    end note
+    Coord --> C: value
+    deactivate Coord
+end
+
+@enduml

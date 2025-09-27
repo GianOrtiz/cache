@@ -26,9 +26,9 @@
     "test": "jest",
     "build": "tsc",
     "start": "npm-run-all --parallel start:node0 start:node1 start:node2",
-    "start:node0": "NODE_ID=node0 PORT=3000 NODES=node0:3000,node1:3001,node2:3002 ts-node src/main.ts",
-    "start:node1": "NODE_ID=node1 PORT=3001 NODES=node0:3000,node1:3001,node2:3002 ts-node src/main.ts",
-    "start:node2": "NODE_ID=node2 PORT=3002 NODES=node0:3000,node1:3001,node2:3002 ts-node src/main.ts"
+    "start:node0": "NODE_ID=node0 PORT=3000 NODES=node0:3000,node1:3001,node2:3002 WRITE_QUORUM=2 READ_QUORUM=2 ts-node src/main.ts",
+    "start:node1": "NODE_ID=node1 PORT=3001 NODES=node0:3000,node1:3001,node2:3002 WRITE_QUORUM=2 READ_QUORUM=2 ts-node src/main.ts",
+    "start:node2": "NODE_ID=node2 PORT=3002 NODES=node0:3000,node1:3001,node2:3002 WRITE_QUORUM=2 READ_QUORUM=2 ts-node src/main.ts"
   },
   "keywords": [],
   "author": "Gian Ortiz",

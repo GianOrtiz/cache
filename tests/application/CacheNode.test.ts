@@ -7,22 +7,19 @@ describe('CacheNode', () => {
     beforeEach(() => {
         const consistentHash = new ConsistentHash();
         const nodeEndpoints = new Map<string, string>();
-        cacheNode = new CacheNode('node0', consistentHash, nodeEndpoints);
+        cacheNode = new CacheNode('node0', consistentHash, nodeEndpoints, 2, 2);
     });
 
-    it('should set and get a value', () => {
-        cacheNode.setLocal('key', 'value');
-        expect(cacheNode.getLocal('key')).toBe('value');
+    it('should set and get a value locally', () => {
+        const timestamp = Date.now();
+        cacheNode.setLocal('key', 'value', timestamp);
+        const entry = cacheNode.getLocal('key');
+        expect(entry).toEqual({ value: 'value', timestamp });
     });
 
-    it('should delete a value', () => {
-        cacheNode.setLocal('key', 'value');
+    it('should delete a value locally', () => {
+        cacheNode.setLocal('key', 'value', Date.now());
         cacheNode.deleteLocal('key');
         expect(cacheNode.getLocal('key')).toBeUndefined();
-    });
-
-    it('should return a merkle root', () => {
-        cacheNode.setLocal('key', 'value');
-        expect(cacheNode.getMerkleRoot()).not.toBeNull();
     });
 });

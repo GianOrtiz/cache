@@ -1,15 +1,20 @@
 import { MerkleTree } from './data-structures/MerkleTree';
 
+export interface CacheEntry {
+    value: string;
+    timestamp: number;
+}
+
 export class CacheStore {
-    private readonly data: Map<string, string> = new Map();
+    private readonly data: Map<string, CacheEntry> = new Map();
     private merkleTree: MerkleTree = new MerkleTree([]);
 
-    public set(key: string, value: string): void {
-        this.data.set(key, value);
+    public set(key: string, value: string, timestamp: number): void {
+        this.data.set(key, { value, timestamp });
         this.updateMerkleTree();
     }
 
-    public get(key: string): string | undefined {
+    public get(key: string): CacheEntry | undefined {
         return this.data.get(key);
     }
 
@@ -23,7 +28,9 @@ export class CacheStore {
     }
 
     private updateMerkleTree(): void {
-        const data = Array.from(this.data.entries()).map(([k, v]) => `${k}:${v}`);
+        const data = Array.from(this.data.entries()).map(
+            ([k, v]) => `${k}:${v.value}:${v.timestamp}`,
+        );
         this.merkleTree = new MerkleTree(data);
     }
 }

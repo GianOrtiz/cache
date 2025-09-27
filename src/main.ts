@@ -5,6 +5,8 @@ import { createServer } from './infrastructure/server';
 const nodeId = process.env.NODE_ID || 'node0';
 const port = parseInt(process.env.PORT || '3000');
 const allNodes = (process.env.NODES || 'node0:3000').split(',');
+const writeQuorum = parseInt(process.env.WRITE_QUORUM || '2');
+const readQuorum = parseInt(process.env.READ_QUORUM || '2');
 
 const consistentHash = new ConsistentHash(100);
 const nodeEndpoints = new Map<string, string>();
@@ -17,7 +19,7 @@ for (const nodeInfo of allNodes) {
 }
 
 // Create the cache node
-const node = new CacheNode(nodeId, consistentHash, nodeEndpoints);
+const node = new CacheNode(nodeId, consistentHash, nodeEndpoints, writeQuorum, readQuorum);
 
 // Start the server
 const app = createServer(node);

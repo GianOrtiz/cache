@@ -1,4 +1,4 @@
-import { CacheStore } from '../domain/CacheStore';
+import { CacheStore, CacheEntry } from '../domain/CacheStore';
 import { ConsistentHash } from '../domain/ConsistentHash';
 
 export class CacheNode {
@@ -8,45 +8,125 @@ export class CacheNode {
         public readonly id: string,
         private readonly consistentHash: ConsistentHash,
         private readonly nodeEndpoints: Map<string, string>,
+        private readonly writeQuorum: number,
+        private readonly readQuorum: number,
     ) {}
 
-    public async get(key: string): Promise<string | undefined> {
-        const node = this.consistentHash.getNode(key);
-        if (node === this.id) {
-            return this.getLocal(key);
-        } else {
-            const endpoint = this.nodeEndpoints.get(node!)!;
-            const response = await fetch(`${endpoint}/${key}`);
-            if (response.ok) {
-                return response.text();
+    public async get(key: string): Promise<CacheEntry | undefined> {
+        const N = 3; // Replication factor
+
+        const nodes = this.consistentHash.getNodes(key, N);
+        const responses: CacheEntry[] = [];
+
+        const readPromises = nodes.map(async (node) => {
+            const endpoint = this.nodeEndpoints.get(node);
+            if (!endpoint) return;
+
+            try {
+                let entry: CacheEntry | undefined;
+                if (node === this.id) {
+                    entry = this.getLocal(key);
+                } else {
+                    const response = await fetch(`${endpoint}/internal/${key}`);
+                    if (response.ok) {
+                        entry = await response.json();
+                    }
+                }
+                if (entry) {
+                    responses.push(entry);
+                }
+            } catch (error) {
+                console.error(`[${this.id}] Failed to read from node ${node}:`, error);
             }
+        });
+
+        await Promise.all(readPromises);
+
+        if (responses.length < this.readQuorum) {
+            return undefined; // Read quorum failed
         }
+
+        // Last-Write-Wins: Find the entry with the latest timestamp
+        const latestEntry = responses.reduce((prev, curr) =>
+            prev.timestamp > curr.timestamp ? prev : curr,
+        );
+
+        // Read Repair (asynchronous)
+        this.readRepair(key, nodes, latestEntry);
+
+        return latestEntry;
     }
 
-    public getLocal(key: string): string | undefined {
+    private async readRepair(
+        key: string,
+        nodes: string[],
+        latestEntry: CacheEntry,
+    ): Promise<void> {
+        nodes.forEach(async (node) => {
+            const endpoint = this.nodeEndpoints.get(node);
+            if (!endpoint) return;
+
+            let needsRepair = false;
+            if (node === this.id) {
+                const localEntry = this.getLocal(key);
+                if (!localEntry || localEntry.timestamp < latestEntry.timestamp) {
+                    needsRepair = true;
+                }
+            } else {
+                // In a more robust implementation, we would check the remote node's
+                // timestamp before repairing. For simplicity, we assume the responses
+                // from the initial read are fresh enough to make a repair decision.
+                // This is a simplification.
+            }
+
+            if (needsRepair) {
+                console.log(`[${this.id}] Repairing node ${node} for key ${key}`);
+                this.setLocal(key, latestEntry.value, latestEntry.timestamp);
+            }
+        });
+    }
+
+    public getLocal(key: string): CacheEntry | undefined {
         return this.store.get(key);
     }
 
-    public async set(key: string, value: string): Promise<void> {
-        const nodes = this.consistentHash.getNodes(key, 3);
-        for (const node of nodes) {
+    public async set(key: string, value: string): Promise<boolean> {
+        const N = 3; // Replication factor
+
+        const nodes = this.consistentHash.getNodes(key, N);
+        const timestamp = Date.now();
+        let successfulWrites = 0;
+
+        const writePromises = nodes.map(async (node) => {
             const endpoint = this.nodeEndpoints.get(node);
-            if (endpoint) {
+            if (!endpoint) return;
+
+            try {
                 if (node === this.id) {
-                    this.setLocal(key, value);
+                    this.setLocal(key, value, timestamp);
+                    successfulWrites++;
                 } else {
-                    await fetch(`${endpoint}/internal/${key}`, {
+                    const response = await fetch(`${endpoint}/internal/${key}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ value }),
+                        body: JSON.stringify({ value, timestamp }),
                     });
+                    if (response.ok) {
+                        successfulWrites++;
+                    }
                 }
+            } catch (error) {
+                console.error(`[${this.id}] Failed to write to node ${node}:`, error);
             }
-        }
+        });
+
+        await Promise.all(writePromises);
+
+        return successfulWrites >= this.writeQuorum;
     }
 
-    public setLocal(key: string, value: string): void {
-        this.store.set(key, value);
+    public setLocal(key: string, value: string, timestamp: number): void {
+        this.store.set(key, value, timestamp);
     }
 
     public async delete(key: string): Promise<void> {

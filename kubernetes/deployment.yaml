@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-config
+data:
+  WRITE_QUORUM: "2"
+  READ_QUORUM: "2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache
+spec:
+  clusterIP: None
+  ports:
+    - port: 3000
+      name: http
+  selector:
+    app: cache
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cache
+spec:
+  serviceName: "cache"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cache
+  template:
+    metadata:
+      labels:
+        app: cache
+    spec:
+      containers:
+        - name: cache
+          image: gian/cache:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODES
+              value: "cache-0.cache:3000,cache-1.cache:3000,cache-2.cache:3000"
+            - name: WRITE_QUORUM
+              valueFrom:
+                configMapKeyRef:
+                  name: cache-config
+                  key: WRITE_QUORUM
+            - name: READ_QUORUM
+              valueFrom:
+                configMapKeyRef:
+                  name: cache-config
+                  key: READ_QUORUM
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+spec:
+  selector:
+    app: cache
+  ports:
+    - port: 80
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cache-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cache-service
+                port:
+                  number: 80

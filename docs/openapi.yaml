@@ -7,7 +7,7 @@ servers:
   - url: http://api.example.com/v1
     description: Production server
 paths:
-  /items/{key}:
+  /{key}:
     get:
       summary: Retrieve an item
       description: Retrieves the value associated with a given key.
@@ -31,7 +31,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    post:
+    put:
       summary: Add or update an item
       description: Adds a new key-value pair or updates an existing one. The key is provided in the path, and the value is in the request body.
       parameters:

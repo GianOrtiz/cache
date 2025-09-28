@@ -6,6 +6,12 @@ export function createServer(node: CacheNode) {
     const app = express();
     app.use(express.json());
 
+    app.get('/health', async (_, res) => {
+        logger.debug('[GET] /health');
+        await node.antiEntropy();
+        res.send('OK');
+    });
+
     app.get('/:key', async (req, res) => {
         logger.info(`[GET] /${req.params.key}`);
         const entry = await node.get(req.params.key);

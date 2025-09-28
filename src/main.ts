@@ -1,6 +1,7 @@
 import { CacheNode } from './application/CacheNode';
 import { ConsistentHash } from './domain/ConsistentHash';
 import { createServer } from './infrastructure/server';
+import logger from './infrastructure/logger';
 
 const nodeId = process.env.NODE_ID || 'node0';
 const port = parseInt(process.env.PORT || '3000');
@@ -25,13 +26,13 @@ const node = new CacheNode(nodeId, consistentHash, nodeEndpoints, writeQuorum, r
 // Start the server
 const app = createServer(node);
 const server = app.listen(port, () => {
-    console.log(`Node ${nodeId} listening on port ${port}`);
+    logger.info(`Node ${nodeId} listening on port ${port}`);
 });
 
 process.on('SIGINT', () => {
-    console.log('Closing server...');
+    logger.info('Closing server...');
     server.close(() => {
-        console.log('Server closed.');
+        logger.info('Server closed.');
         process.exit(0);
     });
 });

@@ -1,5 +1,6 @@
 import { CacheStore, CacheEntry } from '../domain/CacheStore';
 import { ConsistentHash } from '../domain/ConsistentHash';
+import logger from  '../infrastructure/logger';
 
 export class CacheNode {
     private readonly store = new CacheStore();
@@ -25,9 +26,11 @@ export class CacheNode {
 
             try {
                 let entry: CacheEntry | undefined;
-                if (node === this.id) {
+                if (node === this.id) {                    
+                    logger.debug(`Getting key ${key} from local node ${this.id}`);
                     entry = this.getLocal(key);
                 } else {
+                    logger.debug(`Getting key ${key} from remote node ${node}`);
                     const response = await fetch(`${endpoint}/internal/${key}`);
                     if (response.ok) {
                         entry = await response.json();
@@ -37,7 +40,7 @@ export class CacheNode {
                     responses.push(entry);
                 }
             } catch (error) {
-                console.error(`[${this.id}] Failed to read from node ${node}:`, error);
+                logger.error(`[${this.id}] Failed to read from node ${node}:`, error)
             }
         });
 
@@ -55,6 +58,7 @@ export class CacheNode {
         // Read Repair (asynchronous)
         this.readRepair(key, nodes, latestEntry);
 
+        logger.debug(`Found key ${key} with value ${JSON.stringify(latestEntry)}`);
         return latestEntry;
     }
 
@@ -64,6 +68,7 @@ export class CacheNode {
         latestEntry: CacheEntry,
     ): Promise<void> {
         nodes.forEach(async (node) => {
+            logger.debug(`Repairing node ${node} for key ${key}`);
             const endpoint = this.nodeEndpoints.get(node);
             if (!endpoint) return;
 
@@ -81,13 +86,14 @@ export class CacheNode {
             }
 
             if (needsRepair) {
-                console.log(`[${this.id}] Repairing node ${node} for key ${key}`);
+                logger.debug(`[${this.id}] Repairing node ${node} for key ${key}`);
                 this.setLocal(key, latestEntry.value, latestEntry.timestamp);
             }
         });
     }
 
     public getLocal(key: string): CacheEntry | undefined {
+        logger.debug(`Getting local key ${key}`);
         return this.store.get(key);
     }
 
@@ -104,9 +110,11 @@ export class CacheNode {
 
             try {
                 if (node === this.id) {
+                    logger.debug(`Setting key ${key} to value ${value} in local node ${this.id}`);
                     this.setLocal(key, value, timestamp);
                     successfulWrites++;
                 } else {
+                    logger.debug(`Setting key ${key} to value ${value} in remote node ${node}`);
                     const response = await fetch(`${endpoint}/internal/${key}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -117,20 +125,21 @@ export class CacheNode {
                     }
                 }
             } catch (error) {
-                console.error(`[${this.id}] Failed to write to node ${node}:`, error);
+                logger.error(`[${this.id}] Failed to write to node ${node}:`, error);
             }
         });
 
         await Promise.all(writePromises);
 
         if (successfulWrites < this.writeQuorum) {
-            console.warn(`[${this.id}] Write quorum failed for key ${key}. Found ${successfulWrites} responses, need ${this.writeQuorum}`);
+            logger.warn(`[${this.id}] Write quorum failed for key ${key}. Found ${successfulWrites} responses, need ${this.writeQuorum}`);
         }
 
         return successfulWrites >= this.writeQuorum;
     }
 
     public setLocal(key: string, value: string, timestamp: number): void {
+        logger.debug(`Setting local key ${key} to value ${value} with timestamp ${timestamp}`);
         this.store.set(key, value, timestamp);
     }
 
@@ -140,8 +149,10 @@ export class CacheNode {
             const endpoint = this.nodeEndpoints.get(node);
             if (endpoint) {
                 if (node === this.id) {
+                    logger.debug(`Deleting key ${key} from local node ${this.id}`);
                     this.deleteLocal(key);
                 } else {
+                    logger.debug(`Deleting key ${key} from remote node ${node}`);
                     await fetch(`${endpoint}/internal/${key}`, {
                         method: 'DELETE',
                     });
@@ -151,6 +162,7 @@ export class CacheNode {
     }
 
     public deleteLocal(key: string): void {
+        logger.debug(`Deleting local key ${key}`);
         this.store.delete(key);
     }
 
@@ -167,12 +179,12 @@ export class CacheNode {
                 const remoteMerkleRoot = await response.text();
 
                 if (remoteMerkleRoot !== this.getMerkleRoot()) {
-                    console.log(
+                    logger.warn(
                         `Merkle root mismatch with ${nodeId}. Triggering synchronization.`,
                     );
                 }
             } catch (error) {
-                console.error(`Failed to connect to node ${nodeId} for anti-entropy:`, error);
+                logger.error(`Failed to connect to node ${nodeId} for anti-entropy:`, error);
             }
         }
     }

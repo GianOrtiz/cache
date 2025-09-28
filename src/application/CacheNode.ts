@@ -10,10 +10,11 @@ export class CacheNode {
         private readonly nodeEndpoints: Map<string, string>,
         private readonly writeQuorum: number,
         private readonly readQuorum: number,
+        private readonly replication: number,
     ) {}
 
     public async get(key: string): Promise<CacheEntry | undefined> {
-        const N = 3; // Replication factor
+        const N = this.replication;
 
         const nodes = this.consistentHash.getNodes(key, N);
         const responses: CacheEntry[] = [];
@@ -91,7 +92,7 @@ export class CacheNode {
     }
 
     public async set(key: string, value: string): Promise<boolean> {
-        const N = 3; // Replication factor
+        const N = this.replication;
 
         const nodes = this.consistentHash.getNodes(key, N);
         const timestamp = Date.now();
@@ -122,6 +123,10 @@ export class CacheNode {
 
         await Promise.all(writePromises);
 
+        if (successfulWrites < this.writeQuorum) {
+            console.warn(`[${this.id}] Write quorum failed for key ${key}. Found ${successfulWrites} responses, need ${this.writeQuorum}`);
+        }
+
         return successfulWrites >= this.writeQuorum;
     }
 
@@ -130,7 +135,7 @@ export class CacheNode {
     }
 
     public async delete(key: string): Promise<void> {
-        const nodes = this.consistentHash.getNodes(key, 3);
+        const nodes = this.consistentHash.getNodes(key, this.replication);
         for (const node of nodes) {
             const endpoint = this.nodeEndpoints.get(node);
             if (endpoint) {
@@ -157,13 +162,17 @@ export class CacheNode {
         for (const [nodeId, endpoint] of this.nodeEndpoints.entries()) {
             if (nodeId === this.id) continue;
 
-            const response = await fetch(`${endpoint}/internal/merkle-root`);
-            const remoteMerkleRoot = await response.text();
+            try {
+                const response = await fetch(`${endpoint}/internal/merkle-root`);
+                const remoteMerkleRoot = await response.text();
 
-            if (remoteMerkleRoot !== this.getMerkleRoot()) {
-                console.log(
-                    `[${this.id}] Merkle root mismatch with [${nodeId}]. Triggering synchronization.`,
-                );
+                if (remoteMerkleRoot !== this.getMerkleRoot()) {
+                    console.log(
+                        `Merkle root mismatch with ${nodeId}. Triggering synchronization.`,
+                    );
+                }
+            } catch (error) {
+                console.error(`Failed to connect to node ${nodeId} for anti-entropy:`, error);
             }
         }
     }

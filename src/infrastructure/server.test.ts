@@ -15,7 +15,7 @@ describe('Server', () => {
         const nodeEndpoints = new Map<string, string>();
         const nodeId = 'node0';
         nodeEndpoints.set(nodeId, 'http://localhost:3000');
-        const node = new CacheNode(nodeId, consistentHash, nodeEndpoints, 1, 1);
+        const node = new CacheNode(nodeId, consistentHash, nodeEndpoints, 1, 1, 3);
         consistentHash.addNode(nodeId);
         app = createServer(node);
     });
@@ -40,7 +40,7 @@ describe('Server', () => {
         const nodeEndpoints = new Map<string, string>();
         const nodeId = 'node0';
         nodeEndpoints.set(nodeId, 'http://localhost:3000');
-        const node = new CacheNode(nodeId, consistentHash, nodeEndpoints, 2, 1);
+        const node = new CacheNode(nodeId, consistentHash, nodeEndpoints, 2, 1, 3);
         consistentHash.addNode(nodeId);
         const failingApp = createServer(node);
 

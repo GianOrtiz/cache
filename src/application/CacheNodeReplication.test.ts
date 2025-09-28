@@ -21,7 +21,7 @@ describe('CacheNode Replication', () => {
 
     it('should succeed when write quorum is met', async () => {
         // W=2. Node0 (local) + Node1 (remote) = 2 successful writes.
-        const node0 = new CacheNode('node0', consistentHash, nodeEndpoints, 2, 2);
+        const node0 = new CacheNode('node0', consistentHash, nodeEndpoints, 2, 2, 3);
 
         (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true } as Response);
 
@@ -33,7 +33,7 @@ describe('CacheNode Replication', () => {
 
     it('should fail when write quorum is not met', async () => {
         // W=2. Node0 (local) is 1. Remote calls fail.
-        const node0 = new CacheNode('node0', consistentHash, nodeEndpoints, 2, 2);
+        const node0 = new CacheNode('node0', consistentHash, nodeEndpoints, 2, 2, 3);
 
         (global.fetch as jest.Mock).mockResolvedValue({ ok: false } as Response);
 

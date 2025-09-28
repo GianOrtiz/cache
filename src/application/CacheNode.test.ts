@@ -7,7 +7,7 @@ describe('CacheNode', () => {
     beforeEach(() => {
         const consistentHash = new ConsistentHash();
         const nodeEndpoints = new Map<string, string>();
-        cacheNode = new CacheNode('node0', consistentHash, nodeEndpoints, 2, 2);
+        cacheNode = new CacheNode('node0', consistentHash, nodeEndpoints, 2, 2, 3);
     });
 
     it('should set and get a value locally', () => {

@@ -69,7 +69,7 @@ You can interact with the cluster using any HTTP client, such as `curl`. You can
 ### Set a Value
 
 ```bash
-curl -X PUT -H "Content-Type: application/json" -d '{"value":"my-awesome-value"}' http://localhost:3000/my-key
+curl -X PUT -H "Content-Type: application/json" -d '{"value":"my-awesome-value", "timestamp": client-timestamp}' http://localhost:3000/my-key
 ```
 
 ### Get a Value
@@ -89,4 +89,3 @@ curl -X DELETE http://localhost:3000/my-key
 - `src/domain`: Contains the core business logic and data structures, such as the `ConsistentHash`, `CacheStore`, and `MerkleTree`.
 - `src/application`: Contains the `CacheNode` class, which orchestrates the domain logic and handles the interactions between different components.
 - `src/infrastructure`: Contains the Express.js server (`server.ts`) and the main entry point for the application (`main.ts`).
-- `tests`: Contains all the unit and integration tests for the project.

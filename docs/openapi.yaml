@@ -52,8 +52,12 @@ paths:
                 value:
                   type: string
                   example: "my-item-value"
+                timestamp:
+                  type: string
+                  format: date-time
               required:
                 - value
+                - timestamp
       responses:
         '201':
           description: Item created or updated successfully.
